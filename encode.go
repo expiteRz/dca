@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +32,8 @@ var (
 )
 
 var (
-	ErrBadFrame = errors.New("Bad Frame")
+	ErrBadFrame           = errors.New("Bad Frame")
+	reTrimFfmpegStatsLine = regexp.MustCompile(`=\s+`)
 )
 
 // EncodeOptions is a set of options for encoding dca
@@ -125,6 +127,7 @@ type EncodeSession struct {
 	options    *EncodeOptions
 	pipeReader io.Reader
 	filePath   string
+	isUrl      bool
 
 	running      bool
 	started      time.Time
@@ -203,6 +206,7 @@ func (e *EncodeSession) run() {
 	args := []string{
 		"-stats",
 		"-i", inFile,
+		"-vn",
 		"-reconnect", "1",
 		"-reconnect_at_eof", "1",
 		"-reconnect_streamed", "1",
@@ -462,7 +466,7 @@ func (e *EncodeSession) readStderr(stderr io.ReadCloser, wg *sync.WaitGroup) {
 }
 
 func (e *EncodeSession) handleStderrLine(line string) {
-	if strings.Index(line, "size=") != 0 {
+	if strings.Index(line, "size=") != 0 || strings.Contains(line, "speed=N/A") {
 		return // Not stats info
 	}
 
